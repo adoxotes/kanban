@@ -2,7 +2,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import { type Task, type Column, COLUMNS } from "@/types";
 import { COLORS } from "@/constants/colors";
+import { COLOR_CLASSES } from "@/constants/colorClasses";
 import { FONT_SIZES } from "@/constants/fonts";
+import { cn } from "@/lib/utils";
 
 const MiniBarChart = ({ column, tasks }: { column: Column; tasks: Task[] }) => {
   const chartData = tasks
@@ -19,7 +21,7 @@ const MiniBarChart = ({ column, tasks }: { column: Column; tasks: Task[] }) => {
 
   return (
     <Card
-      className="bg-[#2d2d2d] border-[#3c3c3c]"
+      className={cn(COLOR_CLASSES.bg.card, COLOR_CLASSES.border.default)}
       style={{
         backgroundColor: COLORS.background.card,
         borderColor: COLORS.border.default,

@@ -3,15 +3,14 @@ import { type Task } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tag, Clock, X, Check, Edit2 } from "lucide-react";
+import { X, Check, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLORS } from "@/constants/colors";
+import { COLOR_CLASSES } from "@/constants/colorClasses";
 import { FONT_SIZES } from "@/constants/fonts";
 
-// Import Shadcn Alert Dialog components
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,11 +65,6 @@ export const TaskCard = ({
     setIsEditing(false);
   };
 
-  const formatTime = (minutes: number) => {
-    const hours = minutes / 60;
-    return hours < 0.01 ? "0h" : `${hours.toFixed(2)}h`;
-  };
-
   return (
     <Card
       draggable={!isEditing}
@@ -94,11 +88,17 @@ export const TaskCard = ({
           e.currentTarget.style.borderColor = COLORS.border.default;
       }}
     >
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start">
         {isEditing ? (
-          <div className="w-full space-y-2" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="w-full space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div
-              className="uppercase font-bold text-[#858585]"
+              className={cn(
+                "uppercase font-bold",
+                COLOR_CLASSES.text.secondary,
+              )}
               style={{ fontSize: FONT_SIZES.label }}
             >
               Title
@@ -107,14 +107,22 @@ export const TaskCard = ({
               ref={textareaRef as any}
               value={editedText}
               onChange={(e) => setEditedText(e.target.value)}
-              className="bg-[#3c3c3c] border-none focus-visible:ring-1 focus-visible:ring-[#007acc] text-white p-2 h-8"
+              className={cn(
+                "border-none text-white p-2 h-8",
+                COLOR_CLASSES.bg.input,
+                COLOR_CLASSES.ring.accent,
+                "focus-visible:ring-1",
+              )}
               style={{ fontSize: FONT_SIZES.taskBody }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") handleCancel();
               }}
             />
             <div
-              className="uppercase font-bold text-[#858585]"
+              className={cn(
+                "uppercase font-bold",
+                COLOR_CLASSES.text.secondary,
+              )}
               style={{ fontSize: FONT_SIZES.label }}
             >
               Description
@@ -123,14 +131,22 @@ export const TaskCard = ({
               value={editedBody}
               onChange={(e) => setEditedBody(e.target.value)}
               placeholder="Task description..."
-              className="bg-[#3c3c3c] border-none focus-visible:ring-1 focus-visible:ring-[#007acc] text-white min-h-[80px] resize-none p-2"
+              className={cn(
+                "border-none text-white min-h-20 resize-none p-2",
+                COLOR_CLASSES.bg.input,
+                COLOR_CLASSES.ring.accent,
+                "focus-visible:ring-1",
+              )}
               style={{ fontSize: FONT_SIZES.taskBody }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") handleCancel();
               }}
             />
             <div
-              className="uppercase font-bold text-[#858585]"
+              className={cn(
+                "uppercase font-bold",
+                COLOR_CLASSES.text.secondary,
+              )}
               style={{ fontSize: FONT_SIZES.label }}
             >
               Tags
@@ -139,7 +155,12 @@ export const TaskCard = ({
               value={editedTags}
               onChange={(e) => setEditedTags(e.target.value)}
               placeholder="Tags (comma separated)..."
-              className="h-7 bg-[#3c3c3c] border-none focus-visible:ring-1 focus-visible:ring-[#007acc] text-white p-2"
+              className={cn(
+                "h-7 border-none text-white p-2",
+                COLOR_CLASSES.bg.input,
+                COLOR_CLASSES.ring.accent,
+                "focus-visible:ring-1",
+              )}
               style={{ fontSize: FONT_SIZES.sm }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") handleCancel();
@@ -149,7 +170,11 @@ export const TaskCard = ({
               <Button
                 size="icon-xs"
                 onClick={handleSave}
-                className="bg-[#007acc] hover:bg-[#118ad4] text-white h-6 w-6"
+                className={cn(
+                  "text-white h-6 w-6",
+                  COLOR_CLASSES.bg.accent,
+                  COLOR_CLASSES.bg.accentHover,
+                )}
               >
                 <Check size={14} />
               </Button>
@@ -157,7 +182,11 @@ export const TaskCard = ({
                 variant="ghost"
                 size="icon-xs"
                 onClick={handleCancel}
-                className="text-[#858585] hover:text-[#cccccc] h-6 w-6"
+                className={cn(
+                  "h-6 w-6",
+                  COLOR_CLASSES.text.secondary,
+                  COLOR_CLASSES.text.primaryHover,
+                )}
               >
                 <X size={14} />
               </Button>
@@ -168,24 +197,52 @@ export const TaskCard = ({
             <div className="flex-1">
               <p
                 className="font-bold leading-snug wrap-break-word pr-4 select-none pointer-events-none mb-1"
-                style={{ color: COLORS.text.primary, fontSize: FONT_SIZES.taskTitle }}
+                style={{
+                  color: COLORS.text.primary,
+                  fontSize: FONT_SIZES.taskTitle,
+                }}
               >
                 {task.text}
               </p>
               {task.body && (
                 <p
-                  className="leading-relaxed line-clamp-2 text-[#858585] pointer-events-none select-none"
-                  style={{ color: COLORS.text.secondary, fontSize: FONT_SIZES.taskBody }}
+                  className={cn(
+                    "leading-relaxed line-clamp-2 pointer-events-none select-none mb-1",
+                    COLOR_CLASSES.text.secondary,
+                  )}
+                  style={{
+                    color: COLORS.text.secondary,
+                    fontSize: FONT_SIZES.taskBody,
+                  }}
                 >
                   {task.body}
                 </p>
+              )}
+              {task.tags && (
+                <div className="flex flex-wrap gap-1">
+                  {task.tags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="px-2 h-6"
+                      style={{
+                        backgroundColor: COLORS.background.dark,
+                        color: COLORS.text.secondary,
+                        borderColor: COLORS.border.default,
+                        fontSize: FONT_SIZES.tag,
+                      }}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
               )}
             </div>
 
             <div className="flex flex-col gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
                 variant="ghost"
-                size="icon-xs"
+                size="icon-lg"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditing(true);
@@ -199,7 +256,7 @@ export const TaskCard = ({
                   (e.currentTarget.style.color = COLORS.text.secondary)
                 }
               >
-                <Edit2 size={12} />
+                <Edit2 size={14} />
               </Button>
 
               {/* Wrap the Delete Button in the Alert Dialog */}
@@ -207,7 +264,7 @@ export const TaskCard = ({
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon-xs"
+                    size="icon-lg"
                     className="hover:bg-transparent h-4 w-4"
                     style={{ color: COLORS.text.secondary }}
                     onMouseEnter={(e) =>
@@ -242,7 +299,8 @@ export const TaskCard = ({
                       >
                         "{task.text}"
                       </span>
-                      ? This will also remove all tracked time logs for this task.
+                      ? This will also remove all tracked time logs for this
+                      task.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter className="mt-4">
@@ -271,43 +329,6 @@ export const TaskCard = ({
           </>
         )}
       </div>
-
-      {!isEditing && (
-        <>
-          <div className="flex flex-wrap gap-1 mb-3">
-            {task.tags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="px-1 h-4"
-                style={{
-                  backgroundColor: COLORS.background.dark,
-                  color: COLORS.text.secondary,
-                  borderColor: COLORS.border.default,
-                  fontSize: FONT_SIZES.tag,
-                }}
-              >
-                <Tag size={8} className="mr-1" /> {tag}
-              </Badge>
-            ))}
-          </div>
-
-          <Separator
-            className="mb-2"
-            style={{ backgroundColor: COLORS.border.default }}
-          />
-
-          <div className="flex items-center justify-between">
-            <div
-              className="flex items-center gap-1.5 font-mono"
-              style={{ color: COLORS.text.muted, fontSize: FONT_SIZES.xs }}
-            >
-              <Clock size={10} />
-              <span>{formatTime(task.timeLogs[task.column] || 0)}</span>
-            </div>
-          </div>
-        </>
-      )}
     </Card>
   );
 };

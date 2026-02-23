@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { COLORS } from "@/constants/colors";
+import { COLOR_CLASSES } from "@/constants/colorClasses";
 import { FONT_SIZES } from "@/constants/fonts";
+import { cn } from "@/lib/utils";
 
 interface AddTaskFormProps {
   onAdd: (text: string, tags: string, body: string) => void;
@@ -32,13 +34,18 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
       <Button
         variant="ghost"
         onClick={() => setIsAdding(true)}
-        className="w-full flex justify-start items-center gap-2 p-2 h-auto text-[#858585] hover:bg-[#37373d] hover:text-[#cccccc] rounded transition-colors group"
+        className={cn(
+          "w-full flex justify-start items-center gap-2 p-2 h-auto rounded transition-colors group",
+          COLOR_CLASSES.text.secondary,
+          COLOR_CLASSES.bg.hover,
+          COLOR_CLASSES.text.primaryHover,
+        )}
         style={{
           color: COLORS.text.secondary,
           fontSize: FONT_SIZES.lg,
         }}
       >
-        <Plus size={16} className="group-hover:text-[#007acc]" />
+        <Plus size={16} className={COLOR_CLASSES.text.accentGroupHover} />
         Add a card
       </Button>
     );
@@ -47,7 +54,11 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-[#2d2d2d] border border-[#007acc] p-3 rounded shadow-xl space-y-2 animate-in fade-in zoom-in duration-150"
+      className={cn(
+        "p-3 rounded shadow-xl space-y-2 animate-in fade-in zoom-in duration-150 border",
+        COLOR_CLASSES.bg.card,
+        COLOR_CLASSES.border.accent,
+      )}
       style={{
         backgroundColor: COLORS.background.card,
         borderColor: COLORS.border.accent,
@@ -56,7 +67,12 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
       <Textarea
         autoFocus
         rows={1}
-        className="w-full bg-[#3c3c3c] border-none p-2 rounded focus-visible:ring-1 focus-visible:ring-[#007acc] outline-none min-h-8 resize-none text-white font-bold"
+        className={cn(
+          "w-full border-none p-2 rounded outline-none min-h-8 resize-none text-white font-bold",
+          COLOR_CLASSES.bg.input,
+          COLOR_CLASSES.ring.accent,
+          "focus-visible:ring-1",
+        )}
         style={{
           backgroundColor: COLORS.background.input,
           fontSize: FONT_SIZES.taskTitle,
@@ -73,7 +89,12 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
       />
       <Textarea
         rows={2}
-        className="w-full bg-[#3c3c3c] border-none p-2 rounded focus-visible:ring-1 focus-visible:ring-[#007acc] outline-none min-h-12 resize-none text-white"
+        className={cn(
+          "w-full border-none p-2 rounded outline-none min-h-12 resize-none text-white",
+          COLOR_CLASSES.bg.input,
+          COLOR_CLASSES.ring.accent,
+          "focus-visible:ring-1",
+        )}
         style={{
           backgroundColor: COLORS.background.input,
           fontSize: FONT_SIZES.taskBody,
@@ -83,7 +104,12 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
         onChange={(e) => setBody(e.target.value)}
       />
       <Input
-        className="w-full bg-[#3c3c3c] border-none p-2 h-8 rounded focus-visible:ring-1 focus-visible:ring-[#007acc] outline-none text-white"
+        className={cn(
+          "w-full border-none p-2 h-8 rounded outline-none text-white",
+          COLOR_CLASSES.bg.input,
+          COLOR_CLASSES.ring.accent,
+          "focus-visible:ring-1",
+        )}
         style={{
           backgroundColor: COLORS.background.input,
           fontSize: FONT_SIZES.sm,
@@ -96,7 +122,11 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
         <Button
           type="submit"
           size="sm"
-          className="bg-[#007acc] text-white hover:bg-[#118ad4] h-7 px-4"
+          className={cn(
+            "text-white h-7 px-4",
+            COLOR_CLASSES.bg.accent,
+            COLOR_CLASSES.bg.accentHover,
+          )}
           style={{
             backgroundColor: COLORS.accent.blue,
           }}
@@ -108,7 +138,11 @@ export const AddTaskForm = ({ onAdd }: AddTaskFormProps) => {
           variant="ghost"
           size="icon-sm"
           onClick={() => setIsAdding(false)}
-          className="text-[#858585] hover:text-[#cccccc] hover:bg-[#37373d]"
+          className={cn(
+            COLOR_CLASSES.text.secondary,
+            COLOR_CLASSES.text.primaryHover,
+            COLOR_CLASSES.bg.hover,
+          )}
           style={{
             color: COLORS.text.secondary,
           }}

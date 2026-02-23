@@ -144,5 +144,6 @@ export const useKanban = () => {
     deleteTask,
     updateTask,
     handleDrop,
+    setTasks,
   };
 };

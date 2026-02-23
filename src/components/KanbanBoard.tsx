@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Layout, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Layout,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Upload,
+} from "lucide-react";
 
 // Types & Hooks
 import { useKanban } from "@/hooks/useKanban";
@@ -15,6 +22,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { COLORS } from "@/constants/colors";
+import { COLOR_CLASSES } from "@/constants/colorClasses";
 import { FONT_SIZES } from "@/constants/fonts";
 
 const KanbanBoard = () => {
@@ -36,7 +44,41 @@ const KanbanBoard = () => {
     deleteTask,
     updateTask,
     handleDrop,
+    setTasks,
   } = useKanban();
+
+  const handleExport = () => {
+    const dataStr = JSON.stringify(tasks, null, 2);
+    const dataUri =
+      "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+    const exportFileDefaultName = "kanban-tasks.json";
+
+    const linkElement = document.createElement("a");
+    linkElement.setAttribute("href", dataUri);
+    linkElement.setAttribute("download", exportFileDefaultName);
+    linkElement.click();
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+          setTasks(json);
+        } else {
+          alert("Invalid file format. Expected a JSON array of tasks.");
+        }
+      } catch (err) {
+        alert("Error parsing JSON file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ""; // Reset input
+  };
 
   // Handle snapping to currentColumnIndex when it changes via buttons
   useEffect(() => {
@@ -84,7 +126,7 @@ const KanbanBoard = () => {
     >
       {/* Header / Navigation */}
       <header
-        className="border-b flex justify-between items-center sticky top-0 z-10 px-4 h-12"
+        className="border-b flex justify-between items-center sticky top-0 z-10 px-4 h-10"
         style={{
           backgroundColor: COLORS.background.panel,
           borderBottomColor: COLORS.border.default,
@@ -142,6 +184,45 @@ const KanbanBoard = () => {
           </nav>
         </div>
 
+        <div className="flex items-center gap-2">
+          <label>
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleExport}
+            />
+            <div
+              className={cn(
+                "p-1 transition-colors",
+                COLOR_CLASSES.text.secondary,
+                "hover:text-white rounded",
+              )}
+              title="Import Tasks"
+            >
+              <Download size={16} />
+            </div>
+          </label>
+          <label>
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleImport}
+            />
+            <div
+              className={cn(
+                "p-1 transition-colors",
+                COLOR_CLASSES.text.secondary,
+                "hover:text-white rounded",
+              )}
+              title="Import Tasks"
+            >
+              <Upload size={16} />
+            </div>
+          </label>
+        </div>
+
         {/* Tag Filter Bar (Only visible on Board) */}
         {activeTab === "board" && (
           <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-2">
@@ -180,15 +261,28 @@ const KanbanBoard = () => {
       {activeTab === "board" ? (
         <main className="flex-1 flex flex-col relative overflow-hidden h-[calc(100vh-48px)]">
           {/* Mobile Column Navigation */}
-          <div className="md:hidden flex items-center justify-between p-4 bg-[#252526] border-b border-[#3c3c3c] shrink-0">
+          <div
+            className={cn(
+              "md:hidden flex items-center justify-between h-10 border-b shrink-0",
+              COLOR_CLASSES.bg.panel,
+              COLOR_CLASSES.border.default,
+            )}
+          >
             <button
-              onClick={() => setCurrentColumnIndex((prev) => Math.max(0, prev - 1))}
+              onClick={() =>
+                setCurrentColumnIndex((prev) => Math.max(0, prev - 1))
+              }
               disabled={currentColumnIndex === 0}
               className="p-1 disabled:opacity-30"
             >
               <ChevronLeft size={20} />
             </button>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#858585]">
+            <h2
+              className={cn(
+                "text-xs font-bold uppercase tracking-wider",
+                COLOR_CLASSES.text.secondary,
+              )}
+            >
               {COLUMNS[currentColumnIndex]}
             </h2>
             <button
@@ -207,7 +301,7 @@ const KanbanBoard = () => {
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
-            className="flex-1 flex md:grid md:grid-cols-4 md:gap-4 md:p-6 overflow-x-auto snap-x snap-mandatory no-scrollbar md:overflow-hidden"
+            className="flex-1 flex md:grid md:grid-cols-4 md:gap-4 md:p-4 overflow-x-auto snap-x snap-mandatory custom-scrollbar md:overflow-hidden"
           >
             {COLUMNS.map((col) => {
               const columnItems = filteredTasks.filter((t) => t.column === col);
@@ -226,16 +320,15 @@ const KanbanBoard = () => {
                     onDrop={(e) =>
                       handleDrop(e.dataTransfer.getData("taskId"), col)
                     }
-                    className="flex flex-col rounded-md h-full max-h-full overflow-hidden"
+                    className="flex flex-col rounded-sm h-full max-h-full overflow-hidden"
                     style={{
                       backgroundColor: COLORS.background.panel,
                       borderColor: COLORS.border.default,
                     }}
                   >
                     <CardHeader
-                      className="p-3 border-b flex flex-row justify-between items-center shrink-0"
+                      className="border-b h-6 flex flex-row justify-between items-center shrink-0"
                       style={{
-                        backgroundColor: COLORS.background.card,
                         borderBottomColor: COLORS.border.default,
                       }}
                     >
@@ -260,7 +353,7 @@ const KanbanBoard = () => {
                       </Badge>
                     </CardHeader>
 
-                    <CardContent className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-2 min-h-0">
+                    <CardContent className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
                       {columnItems.map((task, idx) => (
                         <div key={task.id} className="relative">
                           {/* Drop Preview Indicator (Top) */}
@@ -268,7 +361,9 @@ const KanbanBoard = () => {
                             dropIndicator.index === idx && (
                               <div
                                 className="h-1 my-1 rounded-full animate-pulse"
-                                style={{ backgroundColor: COLORS.border.accent }}
+                                style={{
+                                  backgroundColor: COLORS.border.accent,
+                                }}
                               />
                             )}
 
@@ -290,7 +385,9 @@ const KanbanBoard = () => {
                             idx === columnItems.length - 1 && (
                               <div
                                 className="h-1 my-1 rounded-full animate-pulse"
-                                style={{ backgroundColor: COLORS.border.accent }}
+                                style={{
+                                  backgroundColor: COLORS.border.accent,
+                                }}
                               />
                             )}
                         </div>
