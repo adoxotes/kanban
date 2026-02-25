@@ -234,6 +234,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveTask(1)
 		case "[":
 			m.moveTask(-1)
+		case "K":
+			m.reorderTask(-1)
+		case "J":
+			m.reorderTask(1)
 		}
 	}
 
@@ -301,6 +305,23 @@ func (m *Model) moveTask(dir int) {
 
 	m.lists[m.focused].RemoveItem(idx)
 	m.lists[target].InsertItem(len(m.lists[target].Items()), t)
+	m.saveTasks()
+}
+
+func (m *Model) reorderTask(dir int) {
+	idx := m.lists[m.focused].Index()
+	items := m.lists[m.focused].Items()
+	newIdx := idx + dir
+
+	if newIdx < 0 || newIdx >= len(items) {
+		return
+	}
+
+	// Swap items
+	item := items[idx]
+	m.lists[m.focused].RemoveItem(idx)
+	m.lists[m.focused].InsertItem(newIdx, item)
+	m.lists[m.focused].Select(newIdx)
 	m.saveTasks()
 }
 
@@ -378,7 +399,7 @@ func (m Model) View() string {
 
 	ui := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 
-	help := "←/→: Switch • [/]: Move • N: New • E: Edit • X: Delete • /: Filter • Q: Quit"
+	help := "←/→: Switch • [/]: Move • J/K: Reorder • N: New • E: Edit • X: Delete • /: Filter • Q: Quit"
 	if m.editing {
 		labels := []string{"Title: ", "Description: ", "Tags: "}
 		help = inputStyle.Render(labels[m.step]) + m.input.View() + " (Enter: Next, Esc: Cancel)"
