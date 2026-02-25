@@ -1,24 +1,33 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Standard Go binary output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# The name of your specific project binary (if you build it)
+kanban
+bin/
 
-node_modules
-dist
-dist-ssr
-*.local
+# --- Project Specific Storage ---
+# Ignore the local JSON database so your personal tasks
+# don't get pushed to the repository
+*.json
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# --- Dependency Folders ---
+# Only needed if you run 'go mod vendor'
+vendor/
+
+# VS Code
+.vscode/
+
+# Vim/Emacs temporary files
+*~
+*.swp
+*.swo
+
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+
+*.test
+*.out
+coverage.txt
