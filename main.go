@@ -16,7 +16,7 @@ import (
 )
 
 // Configuration
-const storageFile = "kanban.json"
+var storageFile = "kanban.json"
 
 // Status represents the column/stage of a task.
 type status int
