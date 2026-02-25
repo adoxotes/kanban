@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ const (
 )
 
 var (
-	columnStyle  = lipgloss.NewStyle().Padding(1, 1).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240"))
+	columnStyle  = lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240"))
 	focusedStyle = columnStyle.BorderForeground(lipgloss.Color("250"))
 	inputStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Margin(1, 0)
 	tagStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("35")).Italic(true)
@@ -48,11 +49,55 @@ type task struct {
 func (t task) Title() string       { return t.TitleStr }
 func (t task) FilterValue() string { return t.TitleStr + " " + t.Tags }
 func (t task) Description() string {
-	// The width is dynamically calculated in the view
 	if t.Tags != "" {
 		return fmt.Sprintf("%s\n%s", t.Content, tagStyle.Render("#"+t.Tags))
 	}
 	return t.Content
+}
+
+// Task Delegate
+type delegateStyles struct {
+	list.DefaultItemStyles
+	NormalTag   lipgloss.Style
+	SelectedTag lipgloss.Style
+}
+
+type taskDelegate struct {
+	height int
+	width  int
+	styles delegateStyles
+}
+
+func (d taskDelegate) Height() int                               { return d.height }
+func (d taskDelegate) Spacing() int                              { return 1 }
+func (d taskDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd { return nil }
+func (d taskDelegate) Render(w io.Writer, l list.Model, index int, item list.Item) {
+	t, ok := item.(task)
+	if !ok {
+		return
+	}
+
+	// Dynamic word wrapping for description
+	wrapWidth := max(d.width-2, 15)
+	descStyle := lipgloss.NewStyle().Width(wrapWidth)
+
+	var title, description, tags string
+	if index == l.Index() {
+		title = d.styles.SelectedTitle.Render(t.TitleStr)
+		description = d.styles.SelectedDesc.Render(descStyle.Render(t.Content))
+		if t.Tags != "" {
+			tags = d.styles.SelectedDesc.Render(tagStyle.Render("#" + t.Tags))
+		}
+	} else {
+		title = d.styles.NormalTitle.Render(t.TitleStr)
+		description = d.styles.NormalDesc.Render(descStyle.Render(t.Content))
+		if t.Tags != "" {
+			tags = d.styles.NormalDesc.Render(tagStyle.Render("#" + t.Tags))
+		}
+	}
+
+	out := lipgloss.JoinVertical(lipgloss.Left, title, description, tags)
+	fmt.Fprint(w, out)
 }
 
 // Application Model
@@ -60,6 +105,7 @@ type Model struct {
 	lists    []list.Model
 	focused  status
 	input    textinput.Model
+	delegate taskDelegate
 	editing  bool
 	isEdit   bool
 	step     int
@@ -73,22 +119,30 @@ func NewModel() Model {
 	ti := textinput.New()
 	ti.Focus()
 
+	defaultStyles := list.NewDefaultItemStyles()
+	defaultStyles.NormalTitle = defaultStyles.NormalTitle.Foreground(lipgloss.Color("255"))
+	defaultStyles.SelectedTitle = defaultStyles.SelectedTitle.Foreground(lipgloss.Color("255")).Bold(true)
+	defaultStyles.NormalDesc = defaultStyles.NormalDesc.Foreground(lipgloss.Color("252"))
+	defaultStyles.SelectedDesc = defaultStyles.SelectedDesc.Foreground(lipgloss.Color("252"))
+
+	styles := delegateStyles{
+		DefaultItemStyles: defaultStyles,
+	}
+
+	delegate := taskDelegate{
+		height: 4,
+		styles: styles,
+	}
+
 	m := Model{
-		lists: make([]list.Model, 4),
-		input: ti,
+		lists:    make([]list.Model, 4),
+		input:    ti,
+		delegate: delegate,
 	}
 
 	cols := []string{"To-do", "In Progress", "Review", "Done"}
 	for i := range m.lists {
-		d := list.NewDefaultDelegate()
-		d.SetHeight(6)
-		// Restoring your original high-contrast list colors
-		d.Styles.NormalTitle = d.Styles.NormalTitle.Foreground(lipgloss.Color("255"))
-		d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(lipgloss.Color("255")).Bold(true)
-		d.Styles.NormalDesc = d.Styles.NormalDesc.Foreground(lipgloss.Color("252"))
-		d.Styles.SelectedDesc = d.Styles.SelectedDesc.Foreground(lipgloss.Color("252"))
-
-		m.lists[i] = list.New([]list.Item{}, d, 0, 0)
+		m.lists[i] = list.New([]list.Item{}, m.delegate, 0, 0)
 		m.lists[i].Title = cols[i]
 		m.lists[i].SetShowHelp(false)
 	}
@@ -138,10 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		colWidth := (m.width / 4) - 4
-		for i := range m.lists {
-			m.lists[i].SetSize(colWidth, m.height-7)
-		}
+		m.updateLayout()
 		m.loaded = true
 
 	case tea.KeyMsg:
@@ -253,19 +304,76 @@ func (m *Model) moveTask(dir int) {
 	m.saveTasks()
 }
 
+func (m *Model) updateLayout() {
+	var numCols int
+	switch {
+	case m.width < 60:
+		numCols = 1
+	case m.width < 100:
+		numCols = 2
+	default:
+		numCols = 4
+	}
+
+	colWidth := (m.width / numCols) - 4
+
+	// Responsive task height: more tasks visible on smaller screens
+	delegateHeight := 6
+	if m.height < 25 {
+		delegateHeight = 3
+	} else if m.height < 40 {
+		delegateHeight = 4
+	} else if m.height < 55 {
+		delegateHeight = 5
+	}
+
+	m.delegate.height = delegateHeight
+	m.delegate.width = colWidth
+
+	for i := range m.lists {
+		m.lists[i].SetSize(colWidth, m.height-5)
+		m.lists[i].SetDelegate(m.delegate)
+	}
+}
+
 func (m Model) View() string {
 	if !m.loaded {
 		return "Initializing board..."
 	}
 
-	colWidth := (m.width / 4) - 2
+	var numCols int
+	switch {
+	case m.width < 60:
+		numCols = 1
+	case m.width < 100:
+		numCols = 2
+	default:
+		numCols = 4
+	}
+
+	colWidth := (m.width / numCols) - 2
 	var cols []string
-	for i := range m.lists {
-		style := columnStyle.Width(colWidth)
-		if status(i) == m.focused {
-			style = focusedStyle.Width(colWidth)
+
+	switch numCols {
+	case 1:
+		cols = append(cols, focusedStyle.Width(colWidth).Render(m.lists[m.focused].View()))
+	case 2:
+		start := (int(m.focused) / 2) * 2
+		for i := start; i < start+2 && i < len(m.lists); i++ {
+			style := columnStyle.Width(colWidth)
+			if status(i) == m.focused {
+				style = focusedStyle.Width(colWidth)
+			}
+			cols = append(cols, style.Render(m.lists[i].View()))
 		}
-		cols = append(cols, style.Render(m.lists[i].View()))
+	default:
+		for i := range m.lists {
+			style := columnStyle.Width(colWidth)
+			if status(i) == m.focused {
+				style = focusedStyle.Width(colWidth)
+			}
+			cols = append(cols, style.Render(m.lists[i].View()))
+		}
 	}
 
 	ui := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
