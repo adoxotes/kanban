@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+*.out
 # The name of your specific project binary (if you build it)
 kanban
 bin/
