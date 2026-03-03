@@ -1,5 +1,4 @@
-// Terminal User Interface (TUI) Kanban board.
-// It uses the Bubble Tea architectural pattern (Model-View-Update).
+// Implements TUI Kanban board.
 package main
 
 import (
@@ -16,10 +15,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Configuration
+// Config
 var storageFile = "kanban.json"
 
-// Status represents the column/stage of a task.
+// Status represents the current column/stage of a task.
 type status int
 
 const (
@@ -30,13 +29,27 @@ const (
 )
 
 var (
+	// Column styles
 	columnStyle  = lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240"))
 	focusedStyle = columnStyle.BorderForeground(lipgloss.Color("250"))
-	inputStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Margin(1, 0)
-	tagStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("35")).Italic(true)
+
+	// Text styles
+	inputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Margin(1, 0)
+	tagStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("35")).Italic(true)
+
+	// Help Popup Styles
+	helpWindowStyle = lipgloss.NewStyle().
+			Border(lipgloss.DoubleBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(1, 2).
+			Background(lipgloss.Color("235"))
+
+	helpTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63")).Bold(true).Underline(true).MarginBottom(1)
+	keyStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("169")).Bold(true)
 )
 
-// Task Model
+// Task & Delegate Logic
+// task defines the data structure for an individual Kanban item.
 type task struct {
 	TitleStr  string                   `json:"title"`
 	Content   string                   `json:"body"`
@@ -46,6 +59,7 @@ type task struct {
 	TimeSpent map[status]time.Duration `json:"time_spent"`
 }
 
+// Interfaces required by the bubbles/list package
 func (t task) Title() string       { return t.TitleStr }
 func (t task) FilterValue() string { return t.TitleStr + " " + t.Tags }
 func (t task) Description() string {
@@ -55,17 +69,11 @@ func (t task) Description() string {
 	return t.Content
 }
 
-// Task Delegate
-type delegateStyles struct {
-	list.DefaultItemStyles
-	NormalTag   lipgloss.Style
-	SelectedTag lipgloss.Style
-}
-
+// taskDelegate handles how each task is rendered within the list.
 type taskDelegate struct {
 	height int
 	width  int
-	styles delegateStyles
+	styles list.DefaultItemStyles
 }
 
 func (d taskDelegate) Height() int                               { return d.height }
@@ -77,7 +85,7 @@ func (d taskDelegate) Render(w io.Writer, l list.Model, index int, item list.Ite
 		return
 	}
 
-	// Dynamic word wrapping for description
+	// Calculate wrapping based on column width
 	wrapWidth := max(d.width-2, 15)
 	descStyle := lipgloss.NewStyle().Width(wrapWidth)
 
@@ -85,34 +93,32 @@ func (d taskDelegate) Render(w io.Writer, l list.Model, index int, item list.Ite
 	if index == l.Index() {
 		title = d.styles.SelectedTitle.Render(t.TitleStr)
 		description = d.styles.SelectedDesc.Render(descStyle.Render(t.Content))
-		if t.Tags != "" {
-			tags = d.styles.SelectedDesc.Render(tagStyle.Render("#" + t.Tags))
-		}
+		tags = d.styles.SelectedDesc.Render(tagStyle.Render("#" + t.Tags))
 	} else {
 		title = d.styles.NormalTitle.Render(t.TitleStr)
 		description = d.styles.NormalDesc.Render(descStyle.Render(t.Content))
-		if t.Tags != "" {
-			tags = d.styles.NormalDesc.Render(tagStyle.Render("#" + t.Tags))
-		}
+		tags = d.styles.NormalDesc.Render(tagStyle.Render("#" + t.Tags))
 	}
 
 	out := lipgloss.JoinVertical(lipgloss.Left, title, description, tags)
 	fmt.Fprint(w, out)
 }
 
-// Application Model
+// The Model
+// Model holds the application state.
 type Model struct {
 	lists    []list.Model
 	focused  status
 	input    textinput.Model
 	delegate taskDelegate
-	editing  bool
-	isEdit   bool
-	step     int
-	tempTask task
-	width    int
-	height   int
-	loaded   bool
+	editing  bool // True when user is typing a new/edited task
+	showHelp bool // True when the help popup is visible
+	isEdit   bool // Distinguishes between 'new' and 'edit' mode
+	step     int  // Tracking input steps (Title -> Desc -> Tags)
+	tempTask task // Stores intermediate task data during creation
+	width    int  // Terminal width
+	height   int  // Terminal height
+	loaded   bool // Flag to prevent rendering before window size is known
 }
 
 func NewModel() Model {
@@ -122,17 +128,8 @@ func NewModel() Model {
 	defaultStyles := list.NewDefaultItemStyles()
 	defaultStyles.NormalTitle = defaultStyles.NormalTitle.Foreground(lipgloss.Color("255"))
 	defaultStyles.SelectedTitle = defaultStyles.SelectedTitle.Foreground(lipgloss.Color("255")).Bold(true)
-	defaultStyles.NormalDesc = defaultStyles.NormalDesc.Foreground(lipgloss.Color("252"))
-	defaultStyles.SelectedDesc = defaultStyles.SelectedDesc.Foreground(lipgloss.Color("252"))
 
-	styles := delegateStyles{
-		DefaultItemStyles: defaultStyles,
-	}
-
-	delegate := taskDelegate{
-		height: 4,
-		styles: styles,
-	}
+	delegate := taskDelegate{height: 4, styles: defaultStyles}
 
 	m := Model{
 		lists:    make([]list.Model, 4),
@@ -144,7 +141,7 @@ func NewModel() Model {
 	for i := range m.lists {
 		m.lists[i] = list.New([]list.Item{}, m.delegate, 0, 0)
 		m.lists[i].Title = cols[i]
-		m.lists[i].SetShowHelp(false)
+		m.lists[i].SetShowHelp(false) // We use our own help system
 	}
 
 	m.loadTasks()
@@ -183,6 +180,20 @@ func (m *Model) loadTasks() {
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Help Popup Logic
+	// If help is open, we only want to listen for keys that close it.
+	if m.showHelp {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "?", "q", "esc", "enter":
+				m.showHelp = false
+			}
+		}
+		return m, nil // Block all other updates while help is shown
+	}
+
+	// Filtering Logic
+	// If the user is currently filtering a list, let the list component handle input.
 	if m.loaded && m.lists[m.focused].FilterState() == list.Filtering {
 		var cmd tea.Cmd
 		m.lists[m.focused], cmd = m.lists[m.focused].Update(msg)
@@ -196,13 +207,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loaded = true
 
 	case tea.KeyMsg:
+		// Handle input if we are in task creation/edit mode
 		if m.editing {
 			return m.handleInput(msg)
 		}
 
+		// Main Navigation Keys
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "?":
+			m.showHelp = true
+			return m, nil
 		case "n":
 			m.editing, m.isEdit, m.step = true, false, 0
 			m.tempTask = task{TimeSpent: make(map[status]time.Duration), LastMoved: time.Now(), Status: todo}
@@ -241,11 +257,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Update the active list (for scrolling and selection)
 	var cmd tea.Cmd
 	m.lists[m.focused], cmd = m.lists[m.focused].Update(msg)
 	return m, cmd
 }
 
+// handleInput manages the multi-step form for creating or editing tasks.
 func (m *Model) handleInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
@@ -289,20 +307,15 @@ func (m *Model) moveTask(dir int) {
 	if len(currItems) == 0 {
 		return
 	}
-
 	target := m.focused + status(dir)
 	if target < todo || target > done {
 		return
 	}
-
 	idx := m.lists[m.focused].Index()
 	t := currItems[idx].(task)
-
-	// Track time spent in previous column
 	t.TimeSpent[t.Status] += time.Since(t.LastMoved)
 	t.Status = target
 	t.LastMoved = time.Now()
-
 	m.lists[m.focused].RemoveItem(idx)
 	m.lists[target].InsertItem(len(m.lists[target].Items()), t)
 	m.saveTasks()
@@ -312,12 +325,9 @@ func (m *Model) reorderTask(dir int) {
 	idx := m.lists[m.focused].Index()
 	items := m.lists[m.focused].Items()
 	newIdx := idx + dir
-
 	if newIdx < 0 || newIdx >= len(items) {
 		return
 	}
-
-	// Swap items
 	item := items[idx]
 	m.lists[m.focused].RemoveItem(idx)
 	m.lists[m.focused].InsertItem(newIdx, item)
@@ -335,33 +345,42 @@ func (m *Model) updateLayout() {
 	default:
 		numCols = 4
 	}
-
 	colWidth := (m.width / numCols) - 4
-
-	// Responsive task height: more tasks visible on smaller screens
-	delegateHeight := 6
-	if m.height < 25 {
-		delegateHeight = 3
-	} else if m.height < 40 {
-		delegateHeight = 4
-	} else if m.height < 55 {
-		delegateHeight = 5
-	}
-
-	m.delegate.height = delegateHeight
 	m.delegate.width = colWidth
-
 	for i := range m.lists {
 		m.lists[i].SetSize(colWidth, m.height-5)
 		m.lists[i].SetDelegate(m.delegate)
 	}
 }
 
+// View Logic
+// helpView builds the content of the popup window.
+func (m Model) helpView() string {
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		helpTitleStyle.Render("KANBAN CONTROLS"),
+		"",
+		fmt.Sprintf("%s  : Navigation (Left/Right)", keyStyle.Render("h/l or ←/→")),
+		fmt.Sprintf("%s  : Select Task (Up/Down)", keyStyle.Render("j/k or ↑/↓")),
+		"",
+		fmt.Sprintf("%s  : New Task", keyStyle.Render("n")),
+		fmt.Sprintf("%s  : Edit Selected Task", keyStyle.Render("e")),
+		fmt.Sprintf("%s  : Delete Selected Task", keyStyle.Render("x")),
+		fmt.Sprintf("%s  : Move Task Between Columns", keyStyle.Render("[ / ]")),
+		fmt.Sprintf("%s  : Reorder Task in List", keyStyle.Render("J / K")),
+		"",
+		fmt.Sprintf("%s  : Search/Filter List", keyStyle.Render("/")),
+		fmt.Sprintf("%s  : Toggle Help", keyStyle.Render("?")),
+		fmt.Sprintf("%s  : Quit", keyStyle.Render("q")),
+	)
+	return helpWindowStyle.Render(content)
+}
+
 func (m Model) View() string {
 	if !m.loaded {
-		return "Initializing board..."
+		return "Loading Board..."
 	}
 
+	// Calculate column layout based on screen width
 	var numCols int
 	switch {
 	case m.width < 60:
@@ -375,6 +394,7 @@ func (m Model) View() string {
 	colWidth := (m.width / numCols) - 2
 	var cols []string
 
+	// Responsive Column Selection
 	switch numCols {
 	case 1:
 		cols = append(cols, focusedStyle.Width(colWidth).Render(m.lists[m.focused].View()))
@@ -397,20 +417,40 @@ func (m Model) View() string {
 		}
 	}
 
-	ui := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+	// Assemble the UI
+	board := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 
-	help := "←/→: Switch • [/]: Move • J/K: Reorder • N: New • E: Edit • X: Delete • /: Filter • Q: Quit"
+	footerHint := "Press '?' for help • 'q' to quit"
 	if m.editing {
 		labels := []string{"Title: ", "Description: ", "Tags: "}
-		help = inputStyle.Render(labels[m.step]) + m.input.View() + " (Enter: Next, Esc: Cancel)"
+		footerHint = inputStyle.Render(labels[m.step]) + m.input.View()
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, ui, help)
+	finalView := lipgloss.JoinVertical(lipgloss.Left, board, footerHint)
+
+	// If showHelp is true, we use lipgloss.Place to put the popup in the exact center
+	// of the terminal, regardless of the board's current size.
+	if m.showHelp {
+		return lipgloss.Place(
+			m.width, m.height,
+			lipgloss.Center, lipgloss.Center,
+			m.helpView(),
+			// This adds a dimmed background effect using a subtle character
+			lipgloss.WithWhitespaceChars("░"),
+			lipgloss.WithWhitespaceForeground(lipgloss.Color("238")),
+		)
+	}
+
+	return finalView
 }
 
+// Entry
 func main() {
-	if _, err := tea.NewProgram(NewModel(), tea.WithAltScreen()).Run(); err != nil {
-		fmt.Printf("Error: %v", err)
+	// tea.WithAltScreen() ensures the TUI uses the "Alternate Screen Buffer",
+	// so it doesn't clutter your terminal scrollback history.
+	p := tea.NewProgram(NewModel(), tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Startup Error: %v", err)
 		os.Exit(1)
 	}
 }
