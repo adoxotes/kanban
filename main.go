@@ -48,7 +48,7 @@ var (
 	keyStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("169")).Bold(true)
 )
 
-// Task & Delegate Logic
+// MARK: Task & Delegate Logic
 // task defines the data structure for an individual Kanban item.
 type task struct {
 	TitleStr  string                   `json:"title"`
@@ -104,7 +104,7 @@ func (d taskDelegate) Render(w io.Writer, l list.Model, index int, item list.Ite
 	fmt.Fprint(w, out)
 }
 
-// The Model
+// MARK: Model
 // Model holds the application state.
 type Model struct {
 	lists    []list.Model
@@ -176,7 +176,7 @@ func (m *Model) loadTasks() {
 	}
 }
 
-// Update Logic
+// MARK: Update Logic
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -348,12 +348,12 @@ func (m *Model) updateLayout() {
 	colWidth := (m.width / numCols) - 4
 	m.delegate.width = colWidth
 	for i := range m.lists {
-		m.lists[i].SetSize(colWidth, m.height-5)
+		m.lists[i].SetSize(colWidth, m.height-6)
 		m.lists[i].SetDelegate(m.delegate)
 	}
 }
 
-// View Logic
+// MARK: View Logic
 // helpView builds the content of the popup window.
 func (m Model) helpView() string {
 	content := lipgloss.JoinVertical(lipgloss.Left,
@@ -392,26 +392,28 @@ func (m Model) View() string {
 	}
 
 	colWidth := (m.width / numCols) - 2
+	// Calculate visual column height (including borders)
+	visualHeight := m.height - 5
 	var cols []string
 
 	// Responsive Column Selection
 	switch numCols {
 	case 1:
-		cols = append(cols, focusedStyle.Width(colWidth).Render(m.lists[m.focused].View()))
+		cols = append(cols, focusedStyle.Width(colWidth).Height(visualHeight).Render(m.lists[m.focused].View()))
 	case 2:
 		start := (int(m.focused) / 2) * 2
 		for i := start; i < start+2 && i < len(m.lists); i++ {
-			style := columnStyle.Width(colWidth)
+			style := columnStyle.Width(colWidth).Height(visualHeight)
 			if status(i) == m.focused {
-				style = focusedStyle.Width(colWidth)
+				style = focusedStyle.Width(colWidth).Height(visualHeight)
 			}
 			cols = append(cols, style.Render(m.lists[i].View()))
 		}
 	default:
 		for i := range m.lists {
-			style := columnStyle.Width(colWidth)
+			style := columnStyle.Width(colWidth).Height(visualHeight)
 			if status(i) == m.focused {
-				style = focusedStyle.Width(colWidth)
+				style = focusedStyle.Width(colWidth).Height(visualHeight)
 			}
 			cols = append(cols, style.Render(m.lists[i].View()))
 		}
@@ -444,7 +446,7 @@ func (m Model) View() string {
 	return finalView
 }
 
-// Entry
+// MARK: Entry
 func main() {
 	// tea.WithAltScreen() ensures the TUI uses the "Alternate Screen Buffer",
 	// so it doesn't clutter your terminal scrollback history.
