@@ -92,15 +92,32 @@ func (d taskDelegate) Render(w io.Writer, l list.Model, index int, item list.Ite
 	var title, description, tags string
 	if index == l.Index() {
 		title = d.styles.SelectedTitle.Render(t.TitleStr)
-		description = d.styles.SelectedDesc.Render(descStyle.Render(t.Content))
-		tags = d.styles.SelectedDesc.Render(tagStyle.Render("#" + t.Tags))
+		if t.Content != "" {
+			description = d.styles.SelectedDesc.Render(descStyle.Render(t.Content))
+		}
+		if t.Tags != "" {
+			tags = d.styles.SelectedDesc.Render(tagStyle.Render("#" + t.Tags))
+		}
 	} else {
 		title = d.styles.NormalTitle.Render(t.TitleStr)
-		description = d.styles.NormalDesc.Render(descStyle.Render(t.Content))
-		tags = d.styles.NormalDesc.Render(tagStyle.Render("#" + t.Tags))
+		if t.Content != "" {
+			description = d.styles.NormalDesc.Render(descStyle.Render(t.Content))
+		}
+		if t.Tags != "" {
+			tags = d.styles.NormalDesc.Render(tagStyle.Render("#" + t.Tags))
+		}
 	}
 
-	out := lipgloss.JoinVertical(lipgloss.Left, title, description, tags)
+	var lines []string
+	lines = append(lines, title)
+	if description != "" {
+		lines = append(lines, description)
+	}
+	if tags != "" {
+		lines = append(lines, tags)
+	}
+
+	out := lipgloss.JoinVertical(lipgloss.Left, lines...)
 	fmt.Fprint(w, out)
 }
 
@@ -442,29 +459,11 @@ func (m Model) View() string {
 	if m.editing {
 		labels := []string{"Title: ", "Description: ", "Tags: "}
 		footerHint = inputStyle.Render(labels[m.step]) + m.input.View()
+	} else if m.deleting {
+		footerHint = inputStyle.Render("Delete this task? ") + keyStyle.Render("y") + "es / " + keyStyle.Render("n") + "o"
 	}
 
 	finalView := lipgloss.JoinVertical(lipgloss.Left, board, footerHint)
-
-	if m.deleting {
-		confirmBox := helpWindowStyle.Render(
-			lipgloss.JoinVertical(lipgloss.Center,
-				helpTitleStyle.Render("Delete this task?"),
-				"",
-				lipgloss.JoinHorizontal(lipgloss.Center,
-					keyStyle.Render("y"), "es / ",
-					keyStyle.Render("n"), "o"),
-			),
-		)
-
-		return lipgloss.Place(
-			m.width, m.height,
-			lipgloss.Center, lipgloss.Center,
-			confirmBox,
-			lipgloss.WithWhitespaceChars("░"),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("238")),
-		)
-	}
 
 	// If showHelp is true, we use lipgloss.Place to put the popup in the exact center
 	// of the terminal, regardless of the board's current size.
@@ -473,9 +472,6 @@ func (m Model) View() string {
 			m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
 			m.helpView(),
-			// This adds a dimmed background effect using a subtle character
-			lipgloss.WithWhitespaceChars("░"),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("238")),
 		)
 	}
 
