@@ -122,7 +122,12 @@ func TestTaskManagement(t *testing.T) {
 	// Delete Task
 	m.focused = inProgress
 	m, _ = updateModel(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
-	assert.Len(t, m.lists[inProgress].Items(), 0)
+	assert.True(t, m.deleting)
+	assert.Len(t, m.lists[inProgress].Items(), 1) // Should still be there
+
+	m, _ = updateModel(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	assert.False(t, m.deleting)
+	assert.Len(t, m.lists[inProgress].Items(), 0) // Now it should be gone
 }
 
 // Helper to handle Model vs *Model updates

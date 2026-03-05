@@ -112,6 +112,7 @@ type Model struct {
 	input    textinput.Model
 	delegate taskDelegate
 	editing  bool // True when user is typing a new/edited task
+	deleting bool // True when confirming task deletion
 	showHelp bool // True when the help popup is visible
 	isEdit   bool // Distinguishes between 'new' and 'edit' mode
 	step     int  // Tracking input steps (Title -> Desc -> Tags)
@@ -181,7 +182,6 @@ func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Help Popup Logic
-	// If help is open, we only want to listen for keys that close it.
 	if m.showHelp {
 		if msg, ok := msg.(tea.KeyMsg); ok {
 			switch msg.String() {
@@ -189,7 +189,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showHelp = false
 			}
 		}
-		return m, nil // Block all other updates while help is shown
+		return m, nil
+	}
+
+	// Deletion Confirmation Logic
+	if m.deleting {
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "y", "enter":
+				if len(m.lists[m.focused].Items()) > 0 {
+					m.lists[m.focused].RemoveItem(m.lists[m.focused].Index())
+					m.saveTasks()
+				}
+				m.deleting = false
+			case "n", "q", "esc":
+				m.deleting = false
+			}
+		}
+		return m, nil
 	}
 
 	// Filtering Logic
@@ -235,8 +252,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "x":
 			if len(m.lists[m.focused].Items()) > 0 {
-				m.lists[m.focused].RemoveItem(m.lists[m.focused].Index())
-				m.saveTasks()
+				m.deleting = true
 			}
 		case "right", "l", "tab":
 			if m.focused < done {
@@ -429,6 +445,26 @@ func (m Model) View() string {
 	}
 
 	finalView := lipgloss.JoinVertical(lipgloss.Left, board, footerHint)
+
+	if m.deleting {
+		confirmBox := helpWindowStyle.Render(
+			lipgloss.JoinVertical(lipgloss.Center,
+				helpTitleStyle.Render("Delete this task?"),
+				"",
+				lipgloss.JoinHorizontal(lipgloss.Center,
+					keyStyle.Render("y"), "es / ",
+					keyStyle.Render("n"), "o"),
+			),
+		)
+
+		return lipgloss.Place(
+			m.width, m.height,
+			lipgloss.Center, lipgloss.Center,
+			confirmBox,
+			lipgloss.WithWhitespaceChars("░"),
+			lipgloss.WithWhitespaceForeground(lipgloss.Color("238")),
+		)
+	}
 
 	// If showHelp is true, we use lipgloss.Place to put the popup in the exact center
 	// of the terminal, regardless of the board's current size.
