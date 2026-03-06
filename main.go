@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +17,21 @@ import (
 )
 
 // Config
-var storageFile = "kanban.json"
+var storageFile string
+
+func init() {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		storageFile = "kanban.json"
+		return
+	}
+	appDir := filepath.Join(configDir, "adoxotes.kanban")
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		storageFile = "kanban.json"
+		return
+	}
+	storageFile = filepath.Join(appDir, "kanban.json")
+}
 
 // Status represents the current column/stage of a task.
 type status int
